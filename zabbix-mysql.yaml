@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-config-zabbix
+data:
+  mysql.cnf: |
+    [mysqld]
+    character-set-server=utf8mb4
+    collation-server=utf8mb4_general_ci
+    init-connect='SET NAMES utf8mb4'
+ 
+    [client]
+    default-character-set=utf8mb4
+ 
+    [mysql]
+    default-character-set=utf8mb4
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-zabbix
+  labels:
+    app: mysql-zabbix
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql-zabbix
+  template:
+    metadata:
+      labels:
+        app: mysql-zabbix
+    spec:
+      containers:
+      - name: mysql-zabbix
+        image: mysql:8.0.30
+        ports:
+        - containerPort: 3306
+        env:
+        - name: TZ
+          value: Asia/Shanghai
+        - name: MYSQL_ROOT_PASSWORD
+          value: '123456'
+        - name: MYSQL_DATABASE
+          value: zabbix
+        - name: MYSQL_USER
+          value: zabbix
+        - name: MYSQL_PASSWORD
+          value: '123456'            
+        volumeMounts:
+        - mountPath: /var/lib/mysql
+          name: mysql-zabbix
+        - mountPath: /etc/mysql/conf.d 
+          name: conf-volume
+          readOnly: true  
+      volumes:
+      - name: mysql-zabbix
+        nfs:
+          path: /data/mysql_zabbix
+          server: 10.9.12.250
+      - name: conf-volume
+        configMap:
+          name: mysql-config-zabbix
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zabbix-service
+spec:
+  selector:
+    app: mysql-zabbix
+  type: NodePort
+  ports:
+  - port: 3306
+    targetPort: 3306
+    nodePort: 30140
